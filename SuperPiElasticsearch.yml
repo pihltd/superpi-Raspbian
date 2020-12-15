@@ -1,0 +1,124 @@
+#https://medium.com/hepsiburadatech/setup-elasticsearch-7-x-cluster-on-raspberry-pi-asus-tinker-board-6a307851c801
+# https://www.elastic.co/guide/en/elasticsearch/reference/current/deb.html
+- hosts: superpi
+  remote_user: pi
+  become: yes
+  tasks:
+#    - name: Set JAVA_HOME
+#      lineinfile:
+#        path: /etc/environment
+#        line: 'JAVA_HOME=/usr/lib/jvm/java-1.11.0-openjdk-armhf'
+#    - name: source environment
+#      # The shell shorthand for the source command is .
+#      shell: . /etc/environment
+#    - name: Install Elasticsearch
+#      command: "/usr/bin/dpkg -i --force-all --ignore-depends=libc6 /mnt/usb2/elasticsearch-7.3.2-no-jdk-amd64.deb"
+#    - name: dpkg force cleanup
+#      lineinfile:
+#        path: /var/lib/dpkg/status
+#        regexp: "Status: install ok half-configured"
+#        line: "Status: install ok installed"
+#    - name: more dpkg cleanup
+#      lineinfile:
+#        path: /var/lib/dpkg/status
+#        regexp: "Depends: bash (>= 4.1), lsb-base (>= 4), libc6, adduser, coreutils (>= 8.4) "
+#        line: "Depends: bash (>= 4.1), lsb-base (>= 4), adduser, coreutils (>= 8.4) "
+    - name: Set up JAVA_HOME
+      lineinfile:
+        path: /etc/default/elasticsearch
+        line: "JAVA_HOME=/usr/lib/jvm/java-1.11.0-openjdk-armhf"
+    - name: Avoid Keystore problems
+      file:
+        path: /etc/elasticsearch
+        owner: root
+        group: elasticsearch
+        mode: '0775'
+        state: directory
+    - name: Name the cluster
+      lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        regexp: "#cluster.name: elasticsearch"
+        line: "cluster.name: elasticsuperpi"
+        state: present
+    - name: Name master node
+      when: "'superpi1' in inventory_hostname"
+      lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        regexp: "#node.name: \"Franz Kafka\""
+        line: "node.name: \"esuperpi1\""
+        state: present
+    - name: Name node 2
+      when: "'superpi2' in inventory_hostname"
+      lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        regexp: "#node.name: \"Franz Kafka\""
+        line: "node.name: \"esuperpi2\""
+        state: present
+    - name: Name node 3
+      when: "'superpi3' in inventory_hostname"
+      lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        regexp: "#node.name: \"Franz Kafka\""
+        line: "node.name: \"esuperpi3\""
+        state: present
+    - name: Name node 4
+      when: "'superpi4' in inventory_hostname"
+      lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        regexp: "#node.name: \"Franz Kafka\""
+        line: "node.name: \"esuperpi4\""
+        state: present
+    - name: Configure master node
+      when: "'superpi1' in inventory_hostname"
+      blockinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        block: |
+          xpack.ml.enabled: false
+          node.master: true
+          node.data: false
+          discovery.seed_hosts: ["superpi1", "superpi2", "superpi3", "superpi4"] # all node ips
+          transport.host: superpi1 # current node ip
+          http.host: superpi1 # current node ip
+          bootstrap.system_call_filter: false
+    - name: Configure Superpi2 node
+      when: "'superpi2' in inventory_hostname"
+      blockinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        block: |
+          xpack.ml.enabled: false
+          node.master: false
+          node.data: true
+          discovery.seed_hosts: ["superpi1", "superpi2", "superpi3", "superpi4"] # all node ips
+          transport.host: superpi2 # current node ip
+          bootstrap.system_call_filter: false
+          cluster.initial_master_nodes: ["esuperpi1"] # master node node.name
+    - name: Configure Superpi3 node
+      when: "'superpi3' in inventory_hostname"
+      blockinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        block: |
+          xpack.ml.enabled: false
+          node.master: false
+          node.data: true
+          discovery.seed_hosts: ["superpi1", "superpi2", "superpi3", "superpi4"] # all node ips
+          transport.host: superpi3 # current node ip
+          bootstrap.system_call_filter: false
+          cluster.initial_master_nodes: ["esuperpi1"] # master node node.name
+    - name: Configure Superpi4 nodes
+      when: "'superpi4' in inventory_hostname"
+      blockinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        block: |
+          xpack.ml.enabled: false
+          node.master: false
+          node.data: true
+          discovery.seed_hosts: ["superpi1", "superpi2", "superpi3", "superpi4"] # all node ips
+          transport.host: superpi4 # current node ip
+          bootstrap.system_call_filter: false
+          cluster.initial_master_nodes: ["esuperpi1"] # master node node.name
+    - name: Enable the Elasticsearch service
+      systemd:
+        name: elasticsearch
+        enabled: yes
+        masked: no
+        state: restarted

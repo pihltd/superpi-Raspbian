@@ -1,0 +1,55 @@
+- hosts: superpiworkers
+  remote_user: pi
+  become: 'yes'
+  tasks:
+    - name: Install slurm client
+      apt:
+        pkg:
+          - slurmd
+          - slurm-client
+    - name: Update superpi2 hosts
+      when: "'superpi2' in inventory_hostname"
+      blockinfile:
+        path: /etc/hosts
+        block: |
+          192.168.1.220 superpi1
+          192.168.1.222 superpi3
+          192.168.1.223 superpi4
+    - name: Update superpi3 hosts
+      when: "'superpi3' in inventory_hostname"
+      blockinfile:
+        path: /etc/hosts
+        block: |
+          192.168.1.220 superpi1
+          192.168.1.224 superpi2
+          192.168.1.223 superpi4
+    - name: Update superpi4 hosts
+      when: "'superpi4' in inventory_hostname"
+      blockinfile:
+        path: /etc/hosts
+        block: |
+          192.168.1.220 superpi1
+          192.168.1.224 superpi2
+          192.168.1.222 superpi3
+    - name: Copy config files from NFS mount
+      copy:
+        remote_src: yes
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+      with_items:
+        - { src: '/mnt/usb1/slurmstuff/slurm.conf', dest: '/etc/slurm-llnl'}
+        - { src: '/mnt/usb1/slurmstuff/cgroup.conf', dest: '/etc/slurm-llnl'}
+        - { src: '/mnt/usb1/slurmstuff/cgroup_allowed_devices_file.conf', dest: '/etc/slurm-llnl'}
+        - { src: '/mnt/usb1/slurmstuff/munge.key', dest: '/etc/munge'}
+    - name: Enable and start munge
+      systemd:
+        name: munge
+        enabled: yes
+        masked: no
+        state: started
+    - name: Enable and start slurm
+      systemd:
+        name: slurmd
+        enabled: yes
+        masked: no
+        state: started

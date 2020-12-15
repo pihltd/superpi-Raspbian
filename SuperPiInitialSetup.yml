@@ -1,0 +1,53 @@
+- hosts: superpi
+  remote_user: ubuntu
+  become: yes
+  tasks:
+    #Shut down password authentication for SSH
+    - name: Shut Down Root Login
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#PermitRootLogin prohibit-password'
+        line: PermitRootLogin no
+    - name: Disable Password authentication
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#PasswordAuthentication yes'
+        line: PasswordAuthentication no
+
+    #Set up static IP addresses
+    - name: Superpi1 Static IP address
+      when: "'superpi1' in inventory_hostname"
+      blockinfile:
+        path: /etc/dhcpcd.conf
+        block: |
+          interface wlan0
+          static ip_address=192.168.1.220
+          static routers=192.168.1.1
+          static domain_name_servers=192.168.1.1
+    - name: Superpi2 Static IP address
+      when: "'superpi2' in inventory_hostname"
+      blockinfile:
+        path: /etc/dhcpcd.conf
+        block: |
+          interface wlan0
+          static ip_address=192.168.1.224
+          static routers=192.168.1.1
+          static domain_name_servers=192.168.1.1
+    - name: Superpi3 Static IP address
+      when: "'superpi3' in inventory_hostname"
+      blockinfile:
+        path: /etc/dhcpcd.conf
+        block: |
+          interface wlan0
+          static ip_address=192.168.1.222
+          static routers=192.168.1.1
+          static domain_name_servers=192.168.1.1
+    - name: Superpi4 Static IP address
+      when: "'superpi4' in inventory_hostname"
+      blockinfile:
+        path: /etc/dhcpcd.conf
+        block: |
+          interface wlan0
+          static ip_address=192.168.1.223
+          static routers=192.168.1.1
+          static domain_name_servers=192.168.1.1

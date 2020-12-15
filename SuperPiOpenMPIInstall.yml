@@ -1,0 +1,13 @@
+- hosts: superpi
+  remote_user: pi
+  become: yes
+  tasks:
+    - name: Install packages for superpi
+      apt:
+        pkg:
+          - openmpi-bin
+          - openmpi-common
+          - libopenmpi3
+          - libopenmpi-dev
+        update_cache: yes
+        state: latest

@@ -1,0 +1,111 @@
+- hosts: superpimaster
+  remote_user: pi
+  become: 'yes'
+  tasks:
+    - name: Set up /etc/hosts
+      blockinfile:
+        path: /etc/hosts
+        block: |
+          192.168.1.224 superpi2
+          192.168.1.222 superpi3
+          192.168.1.223 superpi4
+    - name: Install Slurm
+      apt:
+        pkg:
+          - slurm-wlm
+          - ntpdate
+    - name: Copy the Slurm config file
+      copy:
+        remote_src: 'yes'
+        src: /usr/share/doc/slurm-client/examples/slurm.conf.simple.gz
+        dest: /etc/slurm-llnl
+    - name: Unpack the gz file
+      shell: gunzip /etc/slurm-llnl/slurm.conf.simple.gz
+    - name: Rename the conf file
+      command: mv /etc/slurm-llnl/slurm.conf.simple /etc/slurm-llnl/slurm.conf
+    - name: Set master IP
+      lineinfile:
+        path: /etc/slurm-llnl/slurm.conf
+        regexp: "^SlurmctldHost=workstation"
+        line: SlurmctldHost=superpi1(192.168.1.220)
+    - name: Rename cluster
+      lineinfile:
+        path: /etc/slurm-llnl/slurm.conf
+        regexp: "^ClusterName=cluster"
+        line: ClusterName=slurm_superpi
+    - name: Edit Partition
+      lineinfile:
+        path: /etc/slurm-llnl/slurm.conf
+        regexp: "^PartitionName=debug Nodes=server Default=YES MaxTime=INFINITE State=UP"
+        line: PartitionName=slurm_superpi Nodes=superpi[2-4] Default=YES MaxTime=INFINITE State=UP
+    - name: Add in all nodes
+      blockinfile:
+        path: /etc/slurm-llnl/slurm.conf
+        insertafter: "^NodeName=server CPUs=1 State=UNKNOWN"
+        block: |
+          NodeName=superpi1 NodeAddr=192.168.1.220 CPUs=1 State=UNKNOWN
+          NodeName=superpi2 NodeAddr=192.168.1.224 CPUs=1 State=UNKNOWN
+          NodeName=superpi3 NodeAddr=192.168.1.222 CPUs=1 State=UNKNOWN
+          NodeName=superpi4 NodeAddr=192.168.1.223 CPUs=1 State=UNKNOWN
+    - name: Delete default Nodename line
+      lineinfile:
+        path: /etc/slurm-llnl/slurm.conf
+        regexp: "^NodeName=server CPUs=1 State=UNKNOWN"
+        state: absent
+    - name: Create cgroup.conf
+      copy:
+        dest: /etc/slurm-llnl/cgroup.conf
+        content: |
+          CgroupMountpoint="/sys/fs/cgroup"
+          CgroupAutomount=yes
+          CgroupReleaseAgentDir="/etc/slurm-llnl/cgroup"
+          AllowedDevicesFile="/etc/slurm-llnl/cgroup_allowed_devices_file.conf"
+          ConstrainCores=no
+          TaskAffinity=no
+          ConstrainRAMSpace=yes
+          ConstrainSwapSpace=no
+          ConstrainDevices=no
+          AllowedRamSpace=100
+          AllowedSwapSpace=0
+          MaxRAMPercent=100
+          MaxSwapPercent=100
+          MinRAMSpace=30
+    - name: Create cgroup_allowed_devices_file
+      copy:
+        dest: /etc/slurm-llnl/cgroup_allowed_devices_file.conf
+        content: |
+          /dev/null
+          /dev/urandom
+          /dev/zero
+          /dev/sda*
+          /dev/cpu/*/*
+          /dev/pts/*
+          /mnt/usb1/slurmstuff*
+    - name: Copy configuration files
+      copy:
+        remote_src: yes
+        src: "{{item.src}}"
+        dest: "{{item.dest}}"
+      with_items:
+        - {src: '/etc/slurm-llnl/slurm.conf', dest: '/mnt/usb1/slurmstuff/'}
+        - {src: '/etc/slurm-llnl/cgroup.conf', dest: '/mnt/usb1/slurmstuff'}
+        - {src: '/etc/slurm-llnl/cgroup_allowed_devices_file.conf', dest: '/mnt/usb1/slurmstuff/' }
+        - {src: '/etc/munge/munge.key', dest: '/mnt/usb1/slurmstuff'}
+    - name: Enable munge
+      systemd:
+        name: munge
+        enabled: yes
+        masked: no
+        state: started
+    - name: Enable slurmd
+      systemd:
+        name: slurmd
+        enabled: yes
+        masked: no
+        state: started
+    - name: Enable slurmctld
+      systemd:
+        name: slurmctld
+        enabled: yes
+        masked: no
+        state: started

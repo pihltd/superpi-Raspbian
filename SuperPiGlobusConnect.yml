@@ -1,0 +1,9 @@
+- hosts: superpimaster
+  remote_user: pi
+  become: yes
+  tasks:
+    - name: Install Tcl/Tk
+      apt:
+        pkg:
+          - tk
+          - tcllib

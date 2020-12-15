@@ -1,0 +1,18 @@
+- hosts: superpimaster
+  remote_user: pi
+  become: 'yes'
+  tasks:
+    - name: Create the cert directory if it doesn't exist
+      file:
+        path: /mnt/usb1/certs
+        state: directory
+    - name: Create domain directory
+      file:
+        path: /etc/docker/certs.d/superpi1:5000/
+        state: directory
+    - name: Create the openssl certs
+      openssl_certificate:
+        path: /mnt/usb1/certs/domain.crt
+        privatekey_path: /mnt/usb1/certs/domain.key
+        provider: selfsigned
+    -name: Copy to

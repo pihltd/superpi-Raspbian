@@ -1,0 +1,35 @@
+#https://www.docker.com/blog/happy-pi-day-docker-raspberry-pi/
+- hosts: superpi
+  remote_user: pi
+  become: yes
+  tasks:
+    - name: Install required packages
+      apt:
+        pkg:
+          - apt-transport-https
+          - ca-certificates
+          - software-properties-common
+    - name: Download Docker install script
+      get_url:
+        url: https://get.docker.com/
+        dest: /home/pi/get-docker.sh
+        mode: 0700
+    - name: Install docker
+      command: /home/pi/get-docker.sh
+    - name: Add user pi to docker group
+      user:
+        name: pi
+        groups: docker
+        append: yes
+    - name: Add Docker repo key
+      apt_key:
+        url: https://download.docker.com/linux/raspbian/gpg
+        state: present
+    - name: Add Docker repository
+      apt_repository:
+        repo: deb https://download.docker.com/linux/raspbian/ stretch stable
+        state: present
+    - name: Start the Docker service
+      systemd:
+        state: started
+        name: docker

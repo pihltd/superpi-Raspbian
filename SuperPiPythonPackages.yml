@@ -1,0 +1,6 @@
+- hosts: superpi
+  remote_user: pi
+  become: yes
+  tasks:
+    - pip:
+      name: pandas, mpi4py, requests, pprint, pyyaml
